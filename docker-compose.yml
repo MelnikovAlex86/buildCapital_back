@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: buildcapital-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: buildcapital
+      POSTGRES_PASSWORD: buildcapital
+      POSTGRES_DB: buildcapital
+    ports:
+      - "5432:5432"
+    volumes:
+      - buildcapital_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U buildcapital -d buildcapital"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  buildcapital_pg:

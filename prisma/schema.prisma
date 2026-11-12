@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EXECUTOR
+  CUSTOMER
+}
+
+enum Unit {
+  KG
+  PCS
+  M3
+  L
+  M
+  M2
+  PACK
+  SET
+  TON
+  KIT
+  HOUR
+  BOX
+  PALLET
+  SHEET
+}
+
+enum ItemStatus {
+  PENDING
+  APPROVED
+}
+
+enum NotificationType {
+  NEW_ORDER
+  ORDER_UPDATED
+  ORDER_COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  phone          String?
+  telegram       String?
+  telegramChatId String?  @unique
+  createdAt      DateTime @default(now())
+
+  orders          Order[]        @relation("OrderAuthor")
+  orderParts      OrderPart[]    @relation("PartAuthor")
+  completedLines  OrderLine[]    @relation("LineCompleter")
+  catalogItems    CatalogItem[]  @relation("ItemAuthor")
+  notifications   Notification[]
+}
+
+model CatalogItem {
+  id          String     @id @default(uuid())
+  title       String
+  titleKey    String     @unique
+  unit        Unit
+  unitPrice   Decimal?   @db.Decimal(12, 2)
+  status      ItemStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  approvedAt  DateTime?
+
+  createdById String
+  createdBy   User   @relation("ItemAuthor", fields: [createdById], references: [id])
+
+  lines OrderLine[]
+
+  @@index([status])
+}
+
+model Order {
+  id        String   @id @default(uuid())
+  project   String
+  createdAt DateTime @default(now())
+
+  authorId String
+  author   User   @relation("OrderAuthor", fields: [authorId], references: [id])
+
+  lines         OrderLine[]
+  parts         OrderPart[]
+  notifications Notification[]
+}
+
+model OrderPart {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("PartAuthor", fields: [authorId], references: [id])
+
+  lines OrderLine[]
+
+  @@index([orderId])
+}
+
+model OrderLine {
+  id         String   @id @default(uuid())
+  title      String
+  unit       Unit
+  quantity   Decimal  @db.Decimal(12, 3)
+  unitPrice  Decimal? @db.Decimal(12, 2)
+  completed  Boolean  @default(false)
+  completedAt DateTime?
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  partId String
+  part   OrderPart @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  itemId String
+  item   CatalogItem @relation(fields: [itemId], references: [id])
+
+  completedById String?
+  completedBy   User?   @relation("LineCompleter", fields: [completedById], references: [id])
+
+  @@index([orderId])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  type      NotificationType
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
